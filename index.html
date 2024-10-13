@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asphalt Style Racing Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+
+        #track {
+            position: relative;
+            width: 300px;
+            height: 600px;
+            background-color: #333;
+            margin: 20px auto;
+            border: 5px solid black;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        .car {
+            position: absolute;
+            width: 50px;
+            height: 100px;
+            border-radius: 5px;
+        }
+
+        #player {
+            background-color: blue;
+        }
+
+        #bot1 {
+            background-color: green;
+        }
+
+        #bot2 {
+            background-color: orange;
+        }
+
+        #startBtn, #restartBtn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        #startBtn:hover, #restartBtn:hover {
+            background-color: #0056b3;
+        }
+
+        #result {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+
+        .speed-boost {
+            background-color: yellow;
+            width: 30px;
+            height: 30px;
+            position: absolute;
+            border-radius: 50%;
+            display: none;
+        }
+
+        .obstacle {
+            background-color: red;
+            width: 40px;
+            height: 40px;
+            position: absolute;
+            display: none;
+            border-radius: 5px;
+        }
+
+        #scoreboard {
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        #timer {
+            font-size: 16px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Asphalt Style Racing Game</h1>
+    <div id="track">
+        <div id="player" class="car" style="left: 125px; bottom: 0;"></div>
+        <div id="bot1" class="car" style="left: 50px; bottom: 0;"></div>
+        <div id="bot2" class="car" style="left: 200px; bottom: 0;"></div>
+        <div id="boost" class="speed-boost"></div>
+        <div id="obstacle" class="obstacle"></div>
+    </div>
+
+    <button id="startBtn">Start Race</button>
+    <button id="restartBtn" style="display:none;">Restart Race</button>
+    <div id="result"></div>
+    <div id="scoreboard"></div>
+    <div id="timer"></div>
+
+    <audio id="bgMusic" loop>
+        <source src="background-music.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="boostSound">
+        <source src="boost-sound.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="winSound">
+        <source src="win-sound.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="obstacleSound">
+        <source src="obstacle-sound.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const playerCar = document.getElementById('player');
+        const bot1Car = document.getElementById('bot1');
+        const bot2Car = document.getElementById('bot2');
+        const boostItem = document.getElementById('boost');
+        const obstacle = document.getElementById('obstacle');
+        const resultDisplay = document.getElementById('result');
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const scoreboard = document.getElementById('scoreboard');
+        const timerDisplay = document.getElementById('timer');
+        const bgMusic = document.getElementById('bgMusic');
+        const boostSound = document.getElementById('boostSound');
+        const winSound = document.getElementById('winSound');
+        const obstacleSound = document.getElementById('obstacleSound');
+
+        let playerSpeed = 0;
+        let bot1Speed = 1.5; // Fixed speed for bot1
+        let bot2Speed = 1.5; // Fixed speed for bot2
+        let raceInterval;
+        let gameStarted = false;
+        let timeElapsed = 0;
+        let timerInterval;
+        let score = 0;
+
+        // Function to start the race
+        function startRace() {
+            resultDisplay.innerText = "";
+            playerSpeed = 0;
+            score = 0;
+            updateScoreboard();
+
+            // Show speed boost and obstacle
+            showSpeedBoost();
+            showObstacle();
+
+            // Start background music
+            bgMusic.play();
+
+            // Start timer
+            timeElapsed = 0;
+            timerInterval = setInterval(() => {
+                timeElapsed += 0.05;
+                timerDisplay.innerText = `Time: ${timeElapsed.toFixed(2)}s`;
+            }, 50);
+
+            raceInterval = setInterval(() => {
+                // Move the player's car
+                playerCar.style.bottom = `${playerSpeed}px`;
+
+                // Move the bots' cars
+                bot1Car.style.bottom = `${parseFloat(bot1Car.style.bottom) + bot1Speed}px`;
+                bot2Car.style.bottom = `${parseFloat(bot2Car.style.bottom) + bot2Speed}px`;
+
+                // Check for collisions
+                checkBoostCollision();
+                checkObstacleCollision();
+
+                // Check if any car has reached the finish line
+                checkWinner();
+            }, 50);
+        }
+
+        function checkWinner() {
+            if (playerSpeed >= 600) {
+                endRace("Player");
+            } else if (parseFloat(bot1Car.style.bottom) >= 600) {
+                endRace("Bot 1");
+            } else if (parseFloat(bot2Car.style.bottom) >= 600) {
+                endRace("Bot 2");
+            }
+        }
+
+        function endRace(winner) {
+            clearInterval(raceInterval);
+            clearInterval(timerInterval);
+            bgMusic.pause();
+            winSound.play();
+            resultDisplay.innerText = winner + " wins the race!";
+            restartBtn.style.display = 'block';
+            startBtn.style.display = 'none';
+            if (winner === "Player") {
+                score++;
+                updateScoreboard();
+            }
+        }
+
+        function showSpeedBoost() {
+            boostItem.style.display = 'block';
+            boostItem.style.left = `${Math.random() * (300 - 30)}px`;
+            boostItem.style.bottom = '550px'; // Start at the top of the track
+            setTimeout(() => {
+                boostItem.style.display = 'none'; // Hide after a time
+            }, 5000);
+        }
+
+        function showObstacle() {
+            obstacle.style.display = 'block';
+            obstacle.style.left = `${Math.random() * (300 - 40)}px`;
+            obstacle.style.bottom = '600px'; // Start at the top of the track
+            moveObstacle();
+        }
+
+        function moveObstacle() {
+            obstacleInterval = setInterval(() => {
+                const bottom = parseFloat(obstacle.style.bottom);
+                if (bottom <= -40) {
+                    clearInterval(obstacleInterval);
+                    obstacle.style.display = 'none'; // Hide the obstacle after moving off-screen
+                } else {
+                    obstacle.style.bottom = `${bottom - 5}px`; // Move down the track
+                }
+            }, 50);
+        }
+
+        function checkBoostCollision() {
+            const playerRect = playerCar.getBoundingClientRect();
+            const boostRect = boostItem.getBoundingClientRect();
+
+            if (boostItem.style.display === 'block' && 
+                playerRect.x < boostRect.x + boostRect.width &&
+                playerRect.x + playerRect.width > boostRect.x &&
+                playerRect.y < boostRect.y + boostRect.height &&
+                playerRect.y + playerRect.height > boostRect.y) {
+                    // Collision detected
+                    playerSpeed += 20; // Increase player speed
+                    boostSound.play();
+                    boostItem.style.display = 'none'; // Remove boost
+            }
+        }
+
+        function checkObstacleCollision() {
+            const playerRect = playerCar.getBoundingClientRect();
+            const obstacleRect = obstacle.getBoundingClientRect();
+
+            if (obstacle.style.display === 'block' && 
+                playerRect.x < obstacleRect.x + obstacleRect.width &&
+                playerRect.x + playerRect.width > obstacleRect.x &&
+                playerRect.y < obstacleRect.y + obstacleRect.height &&
+                playerRect.y + playerRect.height > obstacleRect.y) {
+                // Collision detected
+                obstacleSound.play();
+                playerSpeed = Math.max(0, playerSpeed - 30); // Decrease speed
+                obstacle.style.display = 'none'; // Remove obstacle
+            }
+        }
+
+        function updateScoreboard() {
+            scoreboard.innerText = `Score: ${score}`;
+            localStorage.setItem('highScore', score); // Store score in local storage
+        }
+
+        // Event listeners for buttons
+        startBtn.addEventListener('click', () => {
+            startRace();
+            startBtn.style.display = 'none';
+            restartBtn.style.display = 'none';
+        });
+
+        restartBtn.addEventListener('click', () => {
+            location.reload(); // Reload the page to restart the game
+        });
+
+        // Keyboard controls for the player car
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowUp') {
+                playerSpeed += 10; // Increase speed
+            } else if (event.key === 'ArrowDown') {
+                playerSpeed = Math.max(0, playerSpeed - 10); // Decrease speed
+            } else if (event.key === 'ArrowLeft') {
+                const left = parseFloat(playerCar.style.left);
+                if (left > 0) {
+                    playerCar.style.left = `${left - 15}px`; // Move left
+                }
+            } else if (event.key === 'ArrowRight') {
+                const left = parseFloat(playerCar.style.left);
+                if (left < 250) {
+                    playerCar.style.left = `${left + 15}px`; // Move right
+                }
+            }
+        });
+    </script>
+</body>
+</html>
